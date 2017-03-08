@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meta-runner name="SlackNotifier">
+  <description>Notify Slack Channel</description>
+  <settings>
+    <parameters>
+      <param name="mr.Slack.Webhook" value="" spec="text description='WebHook URL for slack notifications' display='normal' label='WebHook URL:'" />
+      <param name="mr.Slack.Channel" value="" spec="text description='Optional. Override to the default webhook channel' display='normal' label='[Optional] Channel:'" />
+      <param name="mr.Slack.FailureText" value="" spec="text description='Text(s) to display on build failure (You can select multiple using a semicolon (;) as separator)' display='normal' label='Failure Texts:'" />
+      <param name="mr.Slack.SuccessText" value="" spec="text description='Text(s) to display on build success (You can select multiple using a semicolon (;) as separator)' display='normal' label='Success Texts:'" />
+      <param name="mr.Teamcity.BuildStatusTrigger" value="" spec="select data_1='BOTH' data_2='FAILURE' data_3='SUCCESS' description='Which build status triggers notification' display='normal' label='Status Trigger:'" />
+    </parameters>
+    <build-runners>
+      <runner name="SlackNotifier" type="jetbrains_powershell">
+        <parameters>
+          <param name="jetbrains_powershell_execution" value="PS1" />
+          <param name="jetbrains_powershell_noprofile" value="true" />
+          <param name="jetbrains_powershell_errorToError" value="error" />
+          <param name="jetbrains_powershell_script_mode" value="CODE" />
+          <param name="jetbrains_powershell_bitness" value="x86" />
+          <param name="teamcity.step.mode" value="default" />
+          <param name="jetbrains_powershell_script_code"><![CDATA[$buildDefinition = "%system.teamcity.buildConfName%"
+				$url = "%teamcity.serverUrl%/viewLog.html?buildId=%teamcity.build.id%&tab=buildResultsDiv&buildTypeId=%system.teamcity.buildType.id%"
+				$branch = "%teamcity.build.branch%"
+				$buildNumber = "%build.number%"
+				$triggeredBy = "%teamcity.build.triggeredBy%"
+				$lastName = $triggeredBy.split(",")[0].Trim()
+				$firstName = $triggeredBy.split(",")[1].Trim()
+				$triggeredBy = "$firstName $lastName"
+
+				$channelOverride = ""
+				$errorText = "%mr.Slack.FailureText%".Split(";") | Get-Random
+				$successText = "%mr.Slack.SuccessText%".Split(";") | Get-Random
+				$statusText = ""
+				$color = ""
+
+				$username = "%system.teamcity.auth.userId%"
+				$password = "%system.teamcity.auth.password%" | ConvertTo-SecureString -asPlainText -Force
+				$cred = New-Object System.Management.Automation.PSCredential($username,$password)
+
+				$status = (Invoke-WebRequest %teamcity.serverUrl%/httpAuth/app/rest/builds/id:%teamcity.build.id%/status -Credential $cred -UseBasicParsing).Content
+
+				if ("%mr.Teamcity.BuildStatusTrigger%" -ne "BOTH" -and $status -ne "%mr.Teamcity.BuildStatusTrigger%")
+				{
+					exit 0
+				}
+
+				if ("%mr.Slack.Channel%" -ne "")
+				{
+					$channelOverride = "`"channel`" : `"%mr.Slack.Channel%`","
+				}
+
+				if ($status -eq "FAILURE")
+				{
+					$statusText = $errorText
+					$color = "danger"
+				}
+				
+				if($status -eq "SUCCESS")
+				{
+					$statusText = $successText
+					$color = "good"
+				}
+
+				$postParams = "{
+					" + $channelOverride + "
+					`"text`":`"" + $statusText + "`",
+					`"attachments`":[
+					  {
+						 `"fallback`":`"" + $statusText + "`",
+						 `"color`":`"" + $color + "`",
+						 `"fields`":[
+							{
+							   `"title`":`"" + $buildDefinition + "`",
+							   `"value`":`"Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
+							   `"short`":false
+							}
+						 ]
+					  }
+				   ]
+				}"
+
+				Invoke-WebRequest -Uri %mr.Slack.Webhook% -Method POST -Body $postParams -UseBasicParsing]]></param>
+        </parameters>
+      </runner>
+    </build-runners>
+    <requirements />
+  </settings>
+</meta-runner>
+
