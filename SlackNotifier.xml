@@ -5,9 +5,10 @@
     <parameters>
       <param name="mr.Slack.Webhook" value="" spec="text description='WebHook URL for slack notifications' display='normal' label='WebHook URL:'" />
       <param name="mr.Slack.Channel" value="" spec="text description='Optional. Override to the default webhook channel' display='normal' label='[Optional] Channel:'" />
-      <param name="mr.Slack.FailureText" value="" spec="text description='Text(s) to display on build failure (You can select multiple using a semicolon (;) as separator)' display='normal' label='Failure Texts:'" />
-      <param name="mr.Slack.SuccessText" value="" spec="text description='Text(s) to display on build success (You can select multiple using a semicolon (;) as separator)' display='normal' label='Success Texts:'" />
+      <param name="mr.Slack.FailureTexts" value="" spec="text description='Text(s) to display on build failure (You can select multiple using a semicolon (;) as separator)' display='normal' label='Failure Texts:'" />
+      <param name="mr.Slack.SuccessTexts" value="" spec="text description='Text(s) to display on build success (You can select multiple using a semicolon (;) as separator)' display='normal' label='Success Texts:'" />
       <param name="mr.Teamcity.BuildStatusTrigger" value="" spec="select data_1='BOTH' data_2='FAILURE' data_3='SUCCESS' description='Which build status triggers notification' display='normal' label='Status Trigger:'" />
+      <param name="mr.Teamcity.BranchSettings" value="" spec="text description='Optional. Branches to include/exclude in the form of [INC:EXC]b1;b2;bn (ex: INC:master;Release-*)' display='normal' label='[Optional] Branches:'" />
     </parameters>
     <build-runners>
       <runner name="SlackNotifier" type="jetbrains_powershell">
@@ -28,10 +29,50 @@
 				$triggeredBy = "$firstName $lastName"
 
 				$channelOverride = ""
-				$errorText = "%mr.Slack.FailureText%".Split(";") | Get-Random
-				$successText = "%mr.Slack.SuccessText%".Split(";") | Get-Random
+				$errorText = "%mr.Slack.FailureTexts%".Split(";") | Get-Random
+				$successText = "%mr.Slack.SuccessTexts%".Split(";") | Get-Random
 				$statusText = ""
 				$color = ""
+
+				$branchSettings = "%mr.Teamcity.BranchSettings%";
+
+                if ($branchSettings -ne "")
+                {
+                    $op = $branchSettings.split(":")[0]
+                    $branches = $branchSettings.split(":")[1] 
+
+                    if ($op -ne "INC" -and $op -ne "EXC")
+                    {
+                        exit 1
+                    }
+
+                    if ($op -eq "INC")
+                    {
+                        foreach($b in $branches.Split(";"))
+                        {
+                            $matches = $branch -like $b
+                            if ($matches) { break }
+                        }
+
+                        if (-not $matches)
+                        {
+                            Write-Host "Branch $branch did not match any trigger branches. No notification sent!"
+                            exit 0;
+                        }
+                    }
+
+                    if ($op -eq "EXC")
+                    {
+                        foreach($b in $branches.Split(";"))
+                        {
+                            if ($branch -like $b)
+                            {
+                                Write-Host "Branch $branch matched a branch exclusion. No notification sent!"
+                                exit 0;
+                            }
+                        }
+                    }
+                }
 
 				$username = "%system.teamcity.auth.userId%"
 				$password = "%system.teamcity.auth.password%" | ConvertTo-SecureString -asPlainText -Force
