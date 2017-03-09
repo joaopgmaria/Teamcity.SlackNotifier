@@ -24,9 +24,12 @@
 				$branch = "%teamcity.build.branch%"
 				$buildNumber = "%build.number%"
 				$triggeredBy = "%teamcity.build.triggeredBy%"
-				$lastName = $triggeredBy.split(",")[0].Trim()
-				$firstName = $triggeredBy.split(",")[1].Trim()
-				$triggeredBy = "$firstName $lastName"
+				$triggeredByUsername = "%teamcity.build.triggeredBy.username%"
+
+				if ($triggeredByUsername -ne "")
+				{
+					$triggeredBy += " ($triggeredByUsername)"
+				}
 
 				$channelOverride = ""
 				$errorText = "%mr.Slack.FailureTexts%".Split(";") | Get-Random
