@@ -85,7 +85,7 @@
 
 				if ("%mr.Teamcity.BuildStatusTrigger%" -ne "BOTH" -and $status -ne "%mr.Teamcity.BuildStatusTrigger%")
 				{
-					exit 0
+					exit $lastExitCode
 				}
 
 				if ("%mr.Slack.Channel%" -ne "")
@@ -123,10 +123,13 @@
 				   ]
 				}"
 
-				Invoke-WebRequest -Uri %mr.Slack.Webhook% -Method POST -Body $postParams -UseBasicParsing]]></param>
+				Invoke-WebRequest -Uri %mr.Slack.Webhook% -Method POST -Body $postParams -UseBasicParsing
+
+				exit $lastExitCode]]></param>
         </parameters>
       </runner>
     </build-runners>
     <requirements />
   </settings>
 </meta-runner>
+
