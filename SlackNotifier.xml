@@ -7,6 +7,7 @@
       <param name="mr.Slack.Channel" value="" spec="text description='Optional. Override to the default webhook channel' display='normal' label='[Optional] Channel:'" />
       <param name="mr.Slack.FailureTexts" value="" spec="text description='Text(s) to display on build failure (You can select multiple using a semicolon (;) as separator)' display='normal' label='Failure Texts:'" />
       <param name="mr.Slack.SuccessTexts" value="" spec="text description='Text(s) to display on build success (You can select multiple using a semicolon (;) as separator)' display='normal' label='Success Texts:'" />
+      <param name="mr.Slack.NotifyChannel" value="" spec="select data_1='None' data_2='@channel' data_3='@here' description='Channel notification' display='normal' label='Channel notification:'" />
       <param name="mr.Teamcity.BuildStatusTrigger" value="" spec="select data_1='BOTH' data_2='FAILURE' data_3='SUCCESS' description='Which build status triggers notification' display='normal' label='Status Trigger:'" />
       <param name="mr.Teamcity.BranchSettings" value="" spec="text description='Optional. Branches to include/exclude in the form of [INC:EXC]b1;b2;bn (ex: INC:master;Release-*)' display='normal' label='[Optional] Branches:'" />
     </parameters>
@@ -25,30 +26,24 @@
 				$buildNumber = "%build.number%"
 				$triggeredBy = "%teamcity.build.triggeredBy%"
 				$triggeredByUsername = "%teamcity.build.triggeredBy.username%"
-
 				if ($triggeredByUsername -ne "")
 				{
 					$triggeredBy += " ($triggeredByUsername)"
 				}
-
 				$channelOverride = ""
 				$errorText = "%mr.Slack.FailureTexts%".Split(";") | Get-Random
 				$successText = "%mr.Slack.SuccessTexts%".Split(";") | Get-Random
 				$statusText = ""
 				$color = ""
-
 				$branchSettings = "%mr.Teamcity.BranchSettings%";
-
                 if ($branchSettings -ne "")
                 {
                     $op = $branchSettings.split(":")[0]
                     $branches = $branchSettings.split(":")[1] 
-
                     if ($op -ne "INC" -and $op -ne "EXC")
                     {
                         exit 1
                     }
-
                     if ($op -eq "INC")
                     {
                         foreach($b in $branches.Split(";"))
@@ -56,14 +51,12 @@
                             $matches = $branch -like $b
                             if ($matches) { break }
                         }
-
                         if (-not $matches)
                         {
                             Write-Host "Branch $branch did not match any trigger branches. No notification sent!"
                             exit 0;
                         }
                     }
-
                     if ($op -eq "EXC")
                     {
                         foreach($b in $branches.Split(";"))
@@ -76,35 +69,36 @@
                         }
                     }
                 }
-
 				$username = "%system.teamcity.auth.userId%"
 				$password = "%system.teamcity.auth.password%" | ConvertTo-SecureString -asPlainText -Force
 				$cred = New-Object System.Management.Automation.PSCredential($username,$password)
-
 				$status = (Invoke-WebRequest %teamcity.serverUrl%/httpAuth/app/rest/builds/id:%teamcity.build.id%/status -Credential $cred -UseBasicParsing).Content
-
 				if ("%mr.Teamcity.BuildStatusTrigger%" -ne "BOTH" -and $status -ne "%mr.Teamcity.BuildStatusTrigger%")
 				{
 					exit $lastExitCode
 				}
-
 				if ("%mr.Slack.Channel%" -ne "")
 				{
 					$channelOverride = "`"channel`" : `"%mr.Slack.Channel%`","
 				}
-
 				if ($status -eq "FAILURE")
 				{
 					$statusText = $errorText
 					$color = "danger"
 				}
-				
 				if($status -eq "SUCCESS")
 				{
 					$statusText = $successText
 					$color = "good"
 				}
-
+				if ("%mr.Slack.NotifyChannel%" -ne "None")
+				{
+					$channelNotification = "%mr.Slack.NotifyChannel% "
+				}
+				elseif ("%mr.Slack.NotifyChannel%" -eq "None")
+				{
+					$channelNotification = ""
+				}
 				$postParams = "{
 					" + $channelOverride + "
 					`"text`":`"" + $statusText + "`",
@@ -115,16 +109,14 @@
 						 `"fields`":[
 							{
 							   `"title`":`"" + $buildDefinition + "`",
-							   `"value`":`"Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
+							   `"value`":`"" + $channelNotification + "Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
 							   `"short`":false
 							}
 						 ]
 					  }
 				   ]
 				}"
-
 				Invoke-WebRequest -Uri %mr.Slack.Webhook% -Method POST -Body $postParams -UseBasicParsing
-
 				exit $lastExitCode]]></param>
         </parameters>
       </runner>
@@ -132,4 +124,3 @@
     <requirements />
   </settings>
 </meta-runner>
-
