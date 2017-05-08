@@ -101,7 +101,7 @@
 				}
 				$postParams = "{
 					" + $channelOverride + "
-					`"text`":`"" + $statusText + "`",
+					`"text`":`"" + $channelNotification + $statusText + "`",
 					`"attachments`":[
 					  {
 						 `"fallback`":`"" + $statusText + "`",
@@ -109,7 +109,7 @@
 						 `"fields`":[
 							{
 							   `"title`":`"" + $buildDefinition + "`",
-							   `"value`":`"" + $channelNotification + "Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
+							   `"value`":`"Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
 							   `"short`":false
 							}
 						 ]
