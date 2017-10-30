@@ -30,6 +30,7 @@
 				$successText = "%mr.Slack.SuccessTexts%".Split(";") | Get-Random
 				$statusText = ""
 				$color = ""
+				$projectName = "%system.teamcity.projectName%"
 				$branchSettings = "%mr.Teamcity.BranchSettings%";
                 if ($branchSettings -ne "")
                 {
@@ -106,7 +107,7 @@
 						 `"color`":`"" + $color + "`",
 						 `"fields`":[
 							{
-							   `"title`":`"" + $buildDefinition + "`",
+							   `"title`":`"" + $projectName + " (" + $buildDefinition + ")`",
 							   `"value`":`"Build <" + $url + "|#" + $buildNumber + "> for " + $branch + " triggered by " + $triggeredBy + " has a status of " + $status.ToLower() + "`",
 							   `"short`":false
 							}
